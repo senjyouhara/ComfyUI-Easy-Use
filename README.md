@@ -40,7 +40,7 @@
 Clone the repo into the **custom_nodes** directory and install the requirements:
 ```shell
 #1. Clone the repo
-git clone https://github.com/yolain/ComfyUI-Easy-Use
+git clone https://github.com/senjyouhara/ComfyUI-Easy-Use
 #2. Install the requirements
 Double-click install.bat to install the required dependencies
 ```
