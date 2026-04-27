@@ -2,36 +2,50 @@
   <div class="easyuse-lora-stack-widget" @mousedown.stop @wheel.stop>
     <div class="lsw-header">
       <label class="lsw-global-toggle">
-        <input type="checkbox" :checked="globalEnabled" @change="updateGlobalEnabled($event.target.checked)" />
-        <span>{{ $t('Enabled') }}</span>
+        <button
+          class="lsw-toggle-switch"
+          :class="{ active: globalEnabled }"
+          type="button"
+          :title="globalEnabled ? $t('Enabled') : $t('Disabled')"
+          @click="updateGlobalEnabled(!globalEnabled)"
+        >
+          <span class="lsw-toggle-thumb" />
+        </button>
+        <span>{{ $t('Toggle All') }}</span>
       </label>
+      <span class="lsw-strength-label">{{ $t('Strength') }}</span>
+      <span class="lsw-header-spacer" />
     </div>
 
     <div class="lsw-list">
       <div v-for="(row, index) in rows" :key="row.key" class="lsw-row">
-        <button
-          class="lsw-toggle-btn"
-          :class="{ active: row.enabled }"
-          type="button"
-          :title="row.enabled ? $t('Enabled') : $t('Disabled')"
-          @click="toggleRow(index)"
-        >
-          <i :class="row.enabled ? 'pi pi-check-circle' : 'pi pi-circle'" />
-        </button>
+        <div class="lsw-pill" :class="{ disabled: !row.enabled }">
+          <button
+            class="lsw-toggle-switch lsw-row-toggle"
+            :class="{ active: row.enabled }"
+            type="button"
+            :title="row.enabled ? $t('Enabled') : $t('Disabled')"
+            @click="toggleRow(index)"
+          >
+            <span class="lsw-toggle-thumb" />
+          </button>
 
-        <select class="lsw-select" :value="row.name" @change="updateRowName(index, $event.target.value)">
-          <option v-for="option in loraOptions" :key="option" :value="option">{{ option }}</option>
-        </select>
+          <select class="lsw-select" :value="row.name" @change="updateRowName(index, $event.target.value)">
+            <option v-for="option in loraOptions" :key="option" :value="option">{{ option }}</option>
+          </select>
 
-        <input
-          class="lsw-weight"
-          type="number"
-          :value="row.strength"
-          step="0.01"
-          min="-10"
-          max="10"
-          @change="updateRowStrength(index, $event.target.value)"
-        />
+          <div class="lsw-weight-control">
+            <button class="lsw-step-btn" type="button" @click="stepRowStrength(index, -1)">
+              <i class="pi pi-angle-left" />
+            </button>
+            <button class="lsw-weight-display" type="button" @click="openRowStrengthPrompt(index, $event)">
+              {{ formatStrength(row.strength) }}
+            </button>
+            <button class="lsw-step-btn" type="button" @click="stepRowStrength(index, 1)">
+              <i class="pi pi-angle-right" />
+            </button>
+          </div>
+        </div>
 
         <button class="lsw-delete-btn" type="button" :title="$t('Delete')" @click="removeRow(index)">
           <i class="pi pi-trash" />
@@ -63,6 +77,8 @@ const defaultLoraName = 'None'
 const defaultStrength = 1.0
 const minStrength = -10
 const maxStrength = 10
+const strengthStep = 0.01
+const strengthPrecision = 2
 const globalEnabled = ref(true)
 const rows = ref([])
 const loraOptions = ref([defaultLoraName])
@@ -93,11 +109,15 @@ const setWidgetValue = (name, value) => {
   return true
 }
 
+const getGraphCanvas = () => props.node.graph?.list_of_graphcanvas?.[0] || window.LGraphCanvas?.active_canvas || null
+
 const normalizeStrength = (value) => {
   const parsed = Number.parseFloat(value)
   if (Number.isNaN(parsed)) return defaultStrength
-  return clamp(parsed, minStrength, maxStrength)
+  return Number(clamp(parsed, minStrength, maxStrength).toFixed(strengthPrecision))
 }
+
+const formatStrength = (value) => normalizeStrength(value).toFixed(strengthPrecision)
 
 const syncStrengthWidgets = (index, strength) => {
   let changed = false
@@ -188,6 +208,23 @@ const updateRowStrength = (index, value) => {
   syncRowsToWidgets()
 }
 
+const stepRowStrength = (index, direction) => {
+  const row = rows.value[index]
+  if (!row) return
+  updateRowStrength(index, row.strength + (direction * strengthStep))
+}
+
+const openRowStrengthPrompt = (index, event) => {
+  const row = rows.value[index]
+  const canvas = getGraphCanvas()
+  if (!row || !canvas?.prompt) return
+
+  canvas.prompt($t('Strength'), formatStrength(row.strength), (value) => {
+    if (value === null) return
+    updateRowStrength(index, value)
+  }, event)
+}
+
 const addRow = () => {
   if (rows.value.length >= maxRows.value) return
   rows.value = [...rows.value, createRow(rows.value.length + 1)]
@@ -231,15 +268,29 @@ onBeforeUnmount(() => {
 }
 
 .lsw-header {
-  display: flex;
-  justify-content: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 118px 28px;
+  gap: 6px;
+  align-items: center;
 }
 
 .lsw-global-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  min-width: 0;
   font-size: 12px;
+  color: var(--descrip-text);
+}
+
+.lsw-strength-label {
+  text-align: center;
+  font-size: 12px;
+  color: var(--descrip-text);
+}
+
+.lsw-header-spacer {
+  display: block;
 }
 
 .lsw-list {
@@ -250,47 +301,133 @@ onBeforeUnmount(() => {
 
 .lsw-row {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 76px 32px;
+  grid-template-columns: minmax(0, 1fr) 28px;
   gap: 6px;
   align-items: center;
 }
 
-.lsw-toggle-btn,
-.lsw-delete-btn,
-.lsw-add-btn {
+.lsw-pill {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 118px;
+  gap: 8px;
+  align-items: center;
+  min-height: 34px;
+  padding: 3px 8px 3px 6px;
   border: 1px solid var(--border-color);
   background: var(--comfy-input-bg);
-  color: var(--input-text);
-  border-radius: 6px;
-  cursor: pointer;
+  border-radius: 999px;
 }
 
-.lsw-toggle-btn,
+.lsw-pill.disabled {
+  opacity: 0.58;
+}
+
+.lsw-toggle-switch {
+  position: relative;
+  width: 30px;
+  height: 18px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.lsw-toggle-switch.active {
+  background: rgba(110, 160, 255, 0.22);
+  border-color: rgba(110, 160, 255, 0.45);
+}
+
+.lsw-toggle-thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #8e8e8e;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.lsw-toggle-switch.active .lsw-toggle-thumb {
+  transform: translateX(12px);
+  background: #9ebcff;
+}
+
+.lsw-row-toggle {
+  justify-self: center;
+}
+
+.lsw-select {
+  width: 100%;
+  min-width: 0;
+  min-height: 28px;
+  border: 0;
+  outline: 0;
+  appearance: none;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  padding: 0 2px;
+}
+
+.lsw-weight-control {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 24px;
+  align-items: center;
+  min-height: 26px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.lsw-step-btn,
+.lsw-weight-display,
+.lsw-delete-btn,
+.lsw-add-btn {
+  border: 0;
+  background: transparent;
+  color: var(--input-text);
+}
+
+.lsw-step-btn,
+.lsw-weight-display,
 .lsw-delete-btn {
-  width: 32px;
-  height: 32px;
+  min-height: 26px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
 }
 
-.lsw-toggle-btn.active {
-  color: var(--theme-color);
+.lsw-step-btn {
+  font-size: 12px;
 }
 
-.lsw-select,
-.lsw-weight {
-  width: 100%;
-  min-height: 32px;
+.lsw-weight-display {
+  min-width: 0;
+  padding: 0 4px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.lsw-delete-btn {
+  width: 28px;
+  height: 28px;
   border: 1px solid var(--border-color);
+  border-radius: 999px;
   background: var(--comfy-input-bg);
-  color: var(--input-text);
-  border-radius: 6px;
-  padding: 0 8px;
+  opacity: 0.72;
 }
 
-.lsw-weight {
-  text-align: right;
+.lsw-delete-btn:hover,
+.lsw-step-btn:hover,
+.lsw-weight-display:hover,
+.lsw-add-btn:hover,
+.lsw-toggle-switch:hover {
+  opacity: 1;
 }
 
 .lsw-add-btn {
@@ -299,6 +436,10 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--comfy-input-bg);
+  border-radius: 8px;
+  cursor: pointer;
 }
 
 .lsw-add-btn:disabled {
@@ -309,7 +450,7 @@ onBeforeUnmount(() => {
 .lsw-empty {
   padding: 8px;
   border: 1px dashed var(--border-color);
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--descrip-text);
   font-size: 12px;
   text-align: center;
