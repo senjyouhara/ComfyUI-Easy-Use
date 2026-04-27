@@ -1,7 +1,7 @@
 <template>
   <div class="easyuse-lora-stack-widget" @mousedown.stop @wheel.stop>
     <div class="lsw-header">
-      <label class="lsw-global-toggle">
+      <div class="lsw-global-toggle">
         <button
           class="lsw-toggle-switch"
           :class="{ active: globalEnabled }"
@@ -11,8 +11,8 @@
         >
           <span class="lsw-toggle-thumb" />
         </button>
-        <span>{{ $t('Toggle All') }}</span>
-      </label>
+        <span>{{ globalEnabled ? $t('Enabled') : $t('Disabled') }}</span>
+      </div>
       <span class="lsw-strength-label">{{ $t('Strength') }}</span>
       <span class="lsw-header-spacer" />
     </div>
@@ -38,18 +38,20 @@
             <button class="lsw-step-btn" type="button" @click="stepRowStrength(index, -1)">
               <i class="pi pi-angle-left" />
             </button>
-            <button class="lsw-weight-display" type="button" @click="openRowStrengthPrompt(index, $event)">
+            <button :title="formatStrength(row.strength)" class="lsw-weight-display" type="button" @click="openRowStrengthPrompt(index, $event)">
               {{ formatStrength(row.strength) }}
             </button>
             <button class="lsw-step-btn" type="button" @click="stepRowStrength(index, 1)">
               <i class="pi pi-angle-right" />
             </button>
           </div>
+
+          <button class="lsw-delete-btn" type="button" :title="$t('Delete')" @click="removeRow(index)">
+            <i class="pi pi-trash" />
+          </button>
+
         </div>
 
-        <button class="lsw-delete-btn" type="button" :title="$t('Delete')" @click="removeRow(index)">
-          <i class="pi pi-trash" />
-        </button>
       </div>
 
       <div v-if="rows.length === 0" class="lsw-empty">
@@ -269,7 +271,7 @@ onBeforeUnmount(() => {
 
 .lsw-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 118px 28px;
+  grid-template-columns: minmax(0, 1fr) 80px 28px;
   gap: 6px;
   align-items: center;
 }
@@ -280,6 +282,7 @@ onBeforeUnmount(() => {
   gap: 8px;
   min-width: 0;
   font-size: 12px;
+  line-height: 12px;
   color: var(--descrip-text);
 }
 
@@ -301,17 +304,17 @@ onBeforeUnmount(() => {
 
 .lsw-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 28px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   align-items: center;
 }
 
 .lsw-pill {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 118px;
+  grid-template-columns: 34px minmax(0, 1fr) 80px 28px;
   gap: 8px;
   align-items: center;
-  min-height: 34px;
+  min-height: 28px;
   padding: 3px 8px 3px 6px;
   border: 1px solid var(--border-color);
   background: var(--comfy-input-bg);
@@ -366,8 +369,8 @@ onBeforeUnmount(() => {
   border: 0;
   outline: 0;
   appearance: none;
-  background: transparent;
-  color: inherit;
+  background: var(--comfy-input-bg);
+  color: var(--input-text);
   font-size: 12px;
   padding: 0 2px;
 }
@@ -377,9 +380,6 @@ onBeforeUnmount(() => {
   grid-template-columns: 24px minmax(0, 1fr) 24px;
   align-items: center;
   min-height: 26px;
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.12);
   overflow: hidden;
 }
 
@@ -416,9 +416,9 @@ onBeforeUnmount(() => {
 .lsw-delete-btn {
   width: 28px;
   height: 28px;
-  border: 1px solid var(--border-color);
+  border: 0;
   border-radius: 999px;
-  background: var(--comfy-input-bg);
+  background: transparent;
   opacity: 0.72;
 }
 

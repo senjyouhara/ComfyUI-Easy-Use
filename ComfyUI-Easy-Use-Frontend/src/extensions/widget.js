@@ -70,8 +70,8 @@ const mountLoraStackWidget = (node) => {
         name: 'lora_stack_editor',
         node,
         options: {
-            getMinHeight: () => Math.max(120, 54 + ((getWidgetByName(node, 'num_loras')?.value || 0) * 38)),
-            getMaxHeight: () => Math.max(120, 54 + ((getWidgetByName(node, 'num_loras')?.value || 0) * 38)),
+            getMinHeight: () => Math.max(120, 80 + ((getWidgetByName(node, 'num_loras')?.value || 0) * 38)),
+            getMaxHeight: () => Math.max(120, 80 + ((getWidgetByName(node, 'num_loras')?.value || 0) * 38)),
             getValue: () => '',
             setValue: () => {},
             hideOnZoom: true,
