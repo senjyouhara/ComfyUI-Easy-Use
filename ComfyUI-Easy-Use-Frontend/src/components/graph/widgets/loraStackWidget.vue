@@ -7,7 +7,7 @@
           :class="{ active: globalEnabled }"
           type="button"
           :title="globalEnabled ? $t('Enabled') : $t('Disabled')"
-          @click="updateGlobalEnabled(!globalEnabled)"
+          @click="updateGlobalEnabled()"
         >
           <span class="lsw-toggle-thumb" />
         </button>
@@ -79,7 +79,7 @@ const defaultLoraName = 'None'
 const defaultStrength = 1.0
 const minStrength = -10
 const maxStrength = 10
-const strengthStep = 0.01
+const strengthStep = 0.1
 const strengthPrecision = 2
 const globalEnabled = ref(true)
 const rows = ref([])
@@ -189,8 +189,8 @@ const syncRowsToWidgets = ({ updateHeight = false } = {}) => {
   })
 }
 
-const updateGlobalEnabled = (value) => {
-  globalEnabled.value = value
+const updateGlobalEnabled = () => {
+  globalEnabled.value = !globalEnabled.value
   syncRowsToWidgets()
 }
 

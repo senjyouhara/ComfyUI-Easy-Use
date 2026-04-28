@@ -1297,7 +1297,7 @@ class loraStack:
         max_lora_num = 10
         inputs = {
             "required": {
-                "toggle": ("BOOLEAN", {"label_on": "on", "label_off": "off"}),
+                "toggle": ("BOOLEAN", {"default": True, "label_on": "on", "label_off": "off"}),
                 "mode": (["simple", "advanced"],),
                 "num_loras": ("INT", {"default": 1, "min": 0, "max": max_lora_num}),
             },
@@ -1312,11 +1312,11 @@ class loraStack:
             inputs["optional"][f"lora_{i}_name"] = (
             ["None"] + folder_paths.get_filename_list("loras"), {"default": "None"})
             inputs["optional"][f"lora_{i}_strength"] = (
-            "FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01})
+            "FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.1})
             inputs["optional"][f"lora_{i}_model_strength"] = (
-            "FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01})
+            "FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.1})
             inputs["optional"][f"lora_{i}_clip_strength"] = (
-            "FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01})
+            "FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.1})
 
         return inputs
 
