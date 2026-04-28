@@ -85,36 +85,32 @@ const mountLoraStackWidget = (node) => {
 }
 
 const hasLinkedInput = (node, name) => Boolean(node.inputs?.find(input => input.name === name)?.link)
-const isWidgetEnabled = (value) => ![false, 'False', 'false', 0, '0', null, undefined].includes(value)
 const getFirstOptionValue = (widget, fallback = 'None') => widget?.options?.values?.find(value => value !== 'None') || widget?.options?.values?.[0] || fallback
 
 const syncFluxLoaderWidgets = (node) => {
     if (node.comfyClass !== 'easy fluxLoader') return
 
-    const useCheckpoint = isWidgetEnabled(getWidgetByName(node, 'toggle')?.value)
     const ckptName = getWidgetByName(node, 'ckpt_name')
     const unetName = getWidgetByName(node, 'unet_name')
     const clipName = getWidgetByName(node, 'clip_name')
     const vaeName = getWidgetByName(node, 'vae_name')
-    const vaeNameComponents = getWidgetByName(node, 'vae_name_components')
 
     const modelOverrideLinked = hasLinkedInput(node, 'model_override')
     const clipOverrideLinked = hasLinkedInput(node, 'clip_override')
     const vaeOverrideLinked = hasLinkedInput(node, 'vae_override')
 
-    if (useCheckpoint && modelOverrideLinked && ckptName?.value === 'None') {
+    if (modelOverrideLinked && ckptName?.value === 'None') {
         ckptName.value = getFirstOptionValue(ckptName)
     }
 
-    if (useCheckpoint && vaeOverrideLinked && vaeName?.value !== 'Baked VAE') {
+    if (vaeOverrideLinked && vaeName?.value === 'None') {
         vaeName.value = 'Baked VAE'
     }
 
-    toggleWidget(node, ckptName, useCheckpoint && !modelOverrideLinked)
-    toggleWidget(node, unetName, !useCheckpoint && !modelOverrideLinked)
-    toggleWidget(node, clipName, !useCheckpoint && !clipOverrideLinked)
-    toggleWidget(node, vaeName, useCheckpoint && !vaeOverrideLinked)
-    toggleWidget(node, vaeNameComponents, !useCheckpoint && !vaeOverrideLinked)
+    toggleWidget(node, ckptName, !modelOverrideLinked)
+    toggleWidget(node, unetName, !modelOverrideLinked)
+    toggleWidget(node, clipName, !clipOverrideLinked)
+    toggleWidget(node, vaeName, !vaeOverrideLinked)
     updateNodeHeight(node)
 }
 
@@ -903,9 +899,6 @@ function toggleLogic(node, widget) {
         case 'toggle':
             widget.type = 'toggle'
             widget.options = {on: 'Enabled', off: 'Disabled'}
-            if (node_name === 'easy fluxLoader') {
-                syncFluxLoaderWidgets(node)
-            }
             break
         case 't5_type':
             ['clip_name', 'padding'].map(name => toggleWidget(node, getWidgetByName(node, name), v == 'sd3' ? true : false));

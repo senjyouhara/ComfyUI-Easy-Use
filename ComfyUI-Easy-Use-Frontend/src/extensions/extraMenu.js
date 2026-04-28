@@ -151,8 +151,6 @@ const addMenu = (content, type, nodes_include, nodeType, has_submenu=true) => {
             options.unshift({
                 content: $t("💎 View Checkpoint Info..."),
                 callback: (value, options, e, menu, node) => {
-                    const useCheckpoint = ![false, 'False', 'false', 0, '0', null, undefined].includes(findWidgetByName(node, 'toggle')?.value)
-                    if (node.comfyClass === 'easy fluxLoader' && !useCheckpoint) return
                     const widget = findWidgetByName(node, 'ckpt_name')
                     let name = widget?.value;
                     if (!name || name == 'None') return

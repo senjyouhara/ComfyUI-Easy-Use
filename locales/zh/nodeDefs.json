@@ -778,22 +778,16 @@
       "optional_controlnet_stack": {
         "name": "ControlNet堆(可选)"
       },
-      "toggle": {
-        "name": "Checkpoint模式"
-      },
       "ckpt_name": {
-        "name": "模型名称"
+        "name": "Checkpoint"
       },
       "unet_name": {
-        "name": "模型"
+        "name": "UNet"
       },
       "clip_name": {
         "name": "CLIP"
       },
       "vae_name": {
-        "name": "VAE"
-      },
-      "vae_name_components": {
         "name": "VAE"
       },
       "lora_name": {

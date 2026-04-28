@@ -454,7 +454,7 @@ class easyXYPlot():
         # 简单用法
         if plot_image_vars["x_node_type"] == "loader" or plot_image_vars["y_node_type"] == "loader":
             model_mode = plot_image_vars.get('model_mode', 'checkpoint')
-            axis_type = self.x_type if self.x_type in ['ckpt_name', 'unet_name', 'clip_name', 'vae_name', 'lora_name', 'lora_model_strength', 'lora_clip_strength'] else self.y_type
+            lora_axis_type = self.x_type if self.x_type in ['lora_name', 'lora_model_strength', 'lora_clip_strength'] else self.y_type
 
             if self.x_type == 'ckpt_name' or self.y_type == 'ckpt_name':
                 ckpt_name = x_value if self.x_type == "ckpt_name" else y_value
@@ -477,16 +477,20 @@ class easyXYPlot():
 
             if self.x_type == 'lora_name' or self.y_type == 'lora_name' or self.x_type == 'lora_model_strength' or self.y_type == 'lora_model_strength' or self.x_type == 'lora_clip_strength' or self.y_type == 'lora_clip_strength':
                 if model_mode == 'components':
-                    model = model if model is not None else plot_image_vars['model']
-                    clip = clip if clip is not None else plot_image_vars['clip']
+                    if model is None:
+                        unet_name = plot_image_vars.get('unet_name')
+                        model = self.easyCache.load_unet(unet_name) if unet_name not in [None, 'None'] else plot_image_vars['model']
+                    if clip is None:
+                        clip_name = plot_image_vars.get('clip_name')
+                        clip = self.easyCache.load_clip(clip_name, type='flux' if sd_version == 'flux' else 'stable_diffusion') if clip_name not in [None, 'None'] else plot_image_vars['clip']
                 else:
                     model, clip, vae, clip_vision = self.easyCache.load_checkpoint(plot_image_vars['ckpt_name'])
 
-                if axis_type == 'lora_name':
+                if lora_axis_type == 'lora_name':
                     lora_name = x_value if self.x_type == "lora_name" else y_value
                     lora_model_strength = 1
                     lora_clip_strength = 1
-                elif axis_type == 'lora_model_strength':
+                elif lora_axis_type == 'lora_model_strength':
                     lora_name = plot_image_vars['lora_name']
                     lora_model_strength = float(x_value) if self.x_type == "lora_model_strength" else float(y_value)
                     lora_clip_strength = plot_image_vars['lora_clip_strength']

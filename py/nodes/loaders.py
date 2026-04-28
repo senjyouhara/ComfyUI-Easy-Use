@@ -940,12 +940,10 @@ class fluxLoader(fullLoader):
         loras = ["None"] + folder_paths.get_filename_list("loras")
         return {
             "required": {
-                "toggle": ("BOOLEAN", {"default": True}),
-                "ckpt_name": (checkpoints + ['None'],),
-                "unet_name": (unets + ['None'],),
-                "clip_name": (clips + ['None'],),
-                "vae_name": (["Baked VAE"] + vaes,),
-                "vae_name_components": (vaes + ['None'],),
+                "ckpt_name": (checkpoints + ['None'], {"default": "None"}),
+                "unet_name": (unets + ['None'], {"default": "None"}),
+                "clip_name": (clips + ['None'], {"default": "None"}),
+                "vae_name": (["None", "Baked VAE"] + vaes, {"default": "None"}),
                 "lora_name": (loras,),
                 "lora_model_strength": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01}),
                 "lora_clip_strength": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01}),
@@ -971,7 +969,7 @@ class fluxLoader(fullLoader):
     FUNCTION = "fluxloader"
     CATEGORY = "EasyUse/Loaders"
 
-    def fluxloader(self, toggle, ckpt_name, unet_name, clip_name, vae_name, vae_name_components,
+    def fluxloader(self, ckpt_name, unet_name, clip_name, vae_name,
                     lora_name, lora_model_strength, lora_clip_strength,
                     resolution, empty_latent_width, empty_latent_height,
                     positive, batch_size, model_override=None, clip_override=None, vae_override=None, optional_lora_stack=None, optional_controlnet_stack=None,
@@ -981,8 +979,11 @@ class fluxLoader(fullLoader):
         if positive == '':
             positive = None
 
-        if toggle:
-            result = super().adv_pipeloader(ckpt_name, 'Default', vae_name, 0,
+        use_checkpoint = ckpt_name != 'None'
+        checkpoint_vae_name = 'Baked VAE' if vae_name == 'None' else vae_name
+
+        if use_checkpoint:
+            result = super().adv_pipeloader(ckpt_name, 'Default', checkpoint_vae_name, 0,
                                             lora_name, lora_model_strength, lora_clip_strength,
                                             resolution, empty_latent_width, empty_latent_height,
                                             positive, 'none', 'comfy',
@@ -992,19 +993,17 @@ class fluxLoader(fullLoader):
                                             a1111_prompt_style=a1111_prompt_style, prompt=prompt,
                                             my_unique_id=my_unique_id)
             result["result"][0]["loader_settings"].update({
-                "toggle": toggle,
                 "model_mode": "checkpoint",
                 "unet_name": unet_name,
                 "clip_name": clip_name,
-                "vae_name_components": vae_name_components,
             })
             return result
 
         if unet_name == 'None' and model_override is None:
-            raise Exception("Please select a model or provide a model override.")
+            raise Exception("Please select a checkpoint or model, or provide a model override.")
         if clip_name == 'None' and clip_override is None:
             raise Exception("Please select a CLIP or provide a clip override.")
-        if vae_name_components == 'None' and vae_override is None:
+        if vae_name in ['None', 'Baked VAE', 'Baked-VAE'] and vae_override is None:
             raise Exception("Please select a VAE or provide a vae override.")
 
         easyCache.update_loaded_objects(prompt)
@@ -1012,7 +1011,7 @@ class fluxLoader(fullLoader):
         log_node_warn("Loading models...")
         model = model_override if model_override is not None else easyCache.load_unet(unet_name)
         clip = clip_override if clip_override is not None else easyCache.load_clip(clip_name, type='flux')
-        vae = vae_override if vae_override is not None else easyCache.load_vae(vae_name_components)
+        vae = vae_override if vae_override is not None else easyCache.load_vae(vae_name)
         lora_stack = []
 
         if optional_lora_stack is not None:
@@ -1031,13 +1030,11 @@ class fluxLoader(fullLoader):
             lora_stack.append(lora)
 
         loader_settings = {
-            "toggle": toggle,
             "model_mode": "components",
             "ckpt_name": None,
             "unet_name": unet_name,
             "clip_name": clip_name,
-            "vae_name": vae_name_components,
-            "vae_name_components": vae_name_components,
+            "vae_name": vae_name,
             "lora_name": lora_name,
             "lora_model_strength": lora_model_strength,
             "lora_clip_strength": lora_clip_strength,
