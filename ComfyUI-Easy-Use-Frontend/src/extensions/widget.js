@@ -84,6 +84,40 @@ const mountLoraStackWidget = (node) => {
     updateNodeHeight(node)
 }
 
+const hasLinkedInput = (node, name) => Boolean(node.inputs?.find(input => input.name === name)?.link)
+const isWidgetEnabled = (value) => ![false, 'False', 'false', 0, '0', null, undefined].includes(value)
+const getFirstOptionValue = (widget, fallback = 'None') => widget?.options?.values?.find(value => value !== 'None') || widget?.options?.values?.[0] || fallback
+
+const syncFluxLoaderWidgets = (node) => {
+    if (node.comfyClass !== 'easy fluxLoader') return
+
+    const useCheckpoint = isWidgetEnabled(getWidgetByName(node, 'toggle')?.value)
+    const ckptName = getWidgetByName(node, 'ckpt_name')
+    const unetName = getWidgetByName(node, 'unet_name')
+    const clipName = getWidgetByName(node, 'clip_name')
+    const vaeName = getWidgetByName(node, 'vae_name')
+    const vaeNameComponents = getWidgetByName(node, 'vae_name_components')
+
+    const modelOverrideLinked = hasLinkedInput(node, 'model_override')
+    const clipOverrideLinked = hasLinkedInput(node, 'clip_override')
+    const vaeOverrideLinked = hasLinkedInput(node, 'vae_override')
+
+    if (useCheckpoint && modelOverrideLinked && ckptName?.value === 'None') {
+        ckptName.value = getFirstOptionValue(ckptName)
+    }
+
+    if (useCheckpoint && vaeOverrideLinked && vaeName?.value !== 'Baked VAE') {
+        vaeName.value = 'Baked VAE'
+    }
+
+    toggleWidget(node, ckptName, useCheckpoint && !modelOverrideLinked)
+    toggleWidget(node, unetName, !useCheckpoint && !modelOverrideLinked)
+    toggleWidget(node, clipName, !useCheckpoint && !clipOverrideLinked)
+    toggleWidget(node, vaeName, useCheckpoint && !vaeOverrideLinked)
+    toggleWidget(node, vaeNameComponents, !useCheckpoint && !vaeOverrideLinked)
+    updateNodeHeight(node)
+}
+
 let all_nodes = null
 /* Register Extension */
 app.registerExtension({
@@ -543,23 +577,26 @@ app.registerExtension({
         }
         if(['easy fluxLoader', 'easy fullLoader'].includes(node_name)){
             nodeType.prototype.onConnectionsChange = async function (output, input) {
-                onConnectionsChange ? onConnectionsChange.apply(this, []) : undefined;
+                onConnectionsChange ? onConnectionsChange.apply(this, arguments) : undefined;
+                if (node_name === 'easy fluxLoader') {
+                    setTimeout(() => syncFluxLoaderWidgets(this), 1)
+                    return
+                }
+
                 const model = this.inputs.find(cate => cate.name === 'model_override')
                 const vae = this.inputs.find(cate => cate.name === 'vae_override')
                 let ckpt_name = getWidgetByName(this, 'ckpt_name')
                 let vae_name = getWidgetByName(this, 'vae_name')
                 if(model?.link && input == 0){
-                    const ckpt_names = ckpt_name?.options.values || []
                     setTimeout(_ => {
-                        this.widgets[0].value = ckpt_names?.[0] || 'None'
+                        ckpt_name.value = getFirstOptionValue(ckpt_name)
                         toggleWidget(this, ckpt_name, model?.link ? false : true)
                     }, 1)
                 }
                 else toggleWidget(this, ckpt_name, model?.link ? false : true)
                 if(vae?.link && (input == 1 || input == 2)){
-                    let vaeIndex = this.widgets.findIndex(w => w.name == 'vae_name')
                     setTimeout(_ => {
-                        this.widgets[vaeIndex].value = 'Baked VAE'
+                        vae_name.value = 'Baked VAE'
                         toggleWidget(this, vae_name, vae?.link ? false : true)
                     },1)
                 }
@@ -602,6 +639,9 @@ app.registerExtension({
                                         hideLoraStackWidgets(node)
                                         node.easyUseLoraStackRefresh?.()
                                     }
+                                    if (node_name === 'easy fluxLoader') {
+                                        syncFluxLoaderWidgets(node)
+                                    }
                                 })
                             }
                         }
@@ -611,6 +651,10 @@ app.registerExtension({
 
             if (node_name === 'easy loraStack') {
                 mountLoraStackWidget(node)
+            }
+
+            if (node_name === 'easy fluxLoader') {
+                requestAnimationFrame(() => syncFluxLoaderWidgets(node))
             }
 
             // easy detailerfix
@@ -859,6 +903,9 @@ function toggleLogic(node, widget) {
         case 'toggle':
             widget.type = 'toggle'
             widget.options = {on: 'Enabled', off: 'Disabled'}
+            if (node_name === 'easy fluxLoader') {
+                syncFluxLoaderWidgets(node)
+            }
             break
         case 't5_type':
             ['clip_name', 'padding'].map(name => toggleWidget(node, getWidgetByName(node, name), v == 'sd3' ? true : false));

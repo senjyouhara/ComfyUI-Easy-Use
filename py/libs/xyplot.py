@@ -68,6 +68,9 @@ class easyXYPlot():
             lora_weight_desc = f" w:{lora_weight:.2f}" if value_type == 'Lora' and lora_weight != 1.0 else ''
             value_label = f"{model_name[:25]}{lora_weight_desc}{trigger_words}"
 
+        if value_type in ['unet_name', 'clip_name', 'vae_name']:
+            value_label = f"{value_type}: {value}"
+
         if value_type in ["ModelMergeBlocks"]:
             if ":" in value:
                 line = value.split(':')
@@ -450,32 +453,50 @@ class easyXYPlot():
 
         # 简单用法
         if plot_image_vars["x_node_type"] == "loader" or plot_image_vars["y_node_type"] == "loader":
+            model_mode = plot_image_vars.get('model_mode', 'checkpoint')
+            axis_type = self.x_type if self.x_type in ['ckpt_name', 'unet_name', 'clip_name', 'vae_name', 'lora_name', 'lora_model_strength', 'lora_clip_strength'] else self.y_type
+
             if self.x_type == 'ckpt_name' or self.y_type == 'ckpt_name':
                 ckpt_name = x_value if self.x_type == "ckpt_name" else y_value
                 model, clip, vae, clip_vision = self.easyCache.load_checkpoint(ckpt_name)
+                model_mode = 'checkpoint'
 
-            if self.x_type == 'lora_name' or self.y_type == 'lora_name':
-                model, clip, vae, clip_vision = self.easyCache.load_checkpoint(plot_image_vars['ckpt_name'])
-                lora_name = x_value if self.x_type == "lora_name" else y_value
-                lora = {"lora_name": lora_name, "model": model, "clip": clip, "model_strength": 1, "clip_strength": 1}
-                model, clip = self.easyCache.load_lora(lora)
+            if self.x_type == 'unet_name' or self.y_type == 'unet_name':
+                unet_name = x_value if self.x_type == "unet_name" else y_value
+                model = self.easyCache.load_unet(unet_name)
+                model_mode = 'components'
 
-            if self.x_type == 'lora_model_strength' or self.y_type == 'lora_model_strength':
-                model, clip, vae, clip_vision = self.easyCache.load_checkpoint(plot_image_vars['ckpt_name'])
-                lora_model_strength = float(x_value) if self.x_type == "lora_model_strength" else float(y_value)
-                lora = {"lora_name": plot_image_vars['lora_name'], "model": model, "clip": clip, "model_strength": lora_model_strength, "clip_strength": plot_image_vars['lora_clip_strength']}
-                model, clip = self.easyCache.load_lora(lora)
+            if self.x_type == 'clip_name' or self.y_type == 'clip_name':
+                clip_name = x_value if self.x_type == "clip_name" else y_value
+                clip = self.easyCache.load_clip(clip_name, type='flux' if sd_version == 'flux' else 'stable_diffusion')
+                model_mode = 'components'
 
-            if self.x_type == 'lora_clip_strength' or self.y_type == 'lora_clip_strength':
-                model, clip, vae, clip_vision = self.easyCache.load_checkpoint(plot_image_vars['ckpt_name'])
-                lora_clip_strength = float(x_value) if self.x_type == "lora_clip_strength" else float(y_value)
-                lora = {"lora_name": plot_image_vars['lora_name'], "model": model, "clip": clip, "model_strength": plot_image_vars['lora_model_strength'], "clip_strength": lora_clip_strength}
-                model, clip = self.easyCache.load_lora(lora)
-
-            # Check for custom VAE
             if self.x_type == 'vae_name' or self.y_type == 'vae_name':
                 vae_name = x_value if self.x_type == "vae_name" else y_value
                 vae = self.easyCache.load_vae(vae_name)
+
+            if self.x_type == 'lora_name' or self.y_type == 'lora_name' or self.x_type == 'lora_model_strength' or self.y_type == 'lora_model_strength' or self.x_type == 'lora_clip_strength' or self.y_type == 'lora_clip_strength':
+                if model_mode == 'components':
+                    model = model if model is not None else plot_image_vars['model']
+                    clip = clip if clip is not None else plot_image_vars['clip']
+                else:
+                    model, clip, vae, clip_vision = self.easyCache.load_checkpoint(plot_image_vars['ckpt_name'])
+
+                if axis_type == 'lora_name':
+                    lora_name = x_value if self.x_type == "lora_name" else y_value
+                    lora_model_strength = 1
+                    lora_clip_strength = 1
+                elif axis_type == 'lora_model_strength':
+                    lora_name = plot_image_vars['lora_name']
+                    lora_model_strength = float(x_value) if self.x_type == "lora_model_strength" else float(y_value)
+                    lora_clip_strength = plot_image_vars['lora_clip_strength']
+                else:
+                    lora_name = plot_image_vars['lora_name']
+                    lora_model_strength = plot_image_vars['lora_model_strength']
+                    lora_clip_strength = float(x_value) if self.x_type == "lora_clip_strength" else float(y_value)
+
+                lora = {"lora_name": lora_name, "model": model, "clip": clip, "model_strength": lora_model_strength, "clip_strength": lora_clip_strength}
+                model, clip = self.easyCache.load_lora(lora)
 
             # CLIP skip
             if not clip:
@@ -674,11 +695,13 @@ class easyXYPlot():
         # We don't process LORAs here because there can be multiple of them.
         labels = [
             {"id": "ckpt_name", "id_desc": "ckpt", "axis_type" : "Checkpoint"},
+            {"id": "unet_name", "id_desc": 'unet', "axis_type" : "unet_name"},
+            {"id": "clip_name", "id_desc": 'clip', "axis_type" : "clip_name"},
             {"id": "vae_name", "id_desc": '', "axis_type" : "vae_name"},
             {"id": "sampler_name", "id_desc": "sampler", "axis_type" : "Sampler"},
             {"id": "scheduler", "id_desc": '', "axis_type" : "Scheduler"},
             {"id": "steps", "id_desc": '', "axis_type" : "Steps"},
-            {"id": "Flux Guidance", "id_desc": 'guidance', "axis_type" : "Flux Guidance"},     
+            {"id": "Flux Guidance", "id_desc": 'guidance', "axis_type" : "Flux Guidance"},
             {"id": "seed", "id_desc": '', "axis_type" : "Seeds++ Batch"}
         ]
         

@@ -63,6 +63,41 @@ class fullLoader:
     FUNCTION = "adv_pipeloader"
     CATEGORY = "EasyUse/Loaders"
 
+    def _finalize_pipe(self, model, clip, vae, lora_stack, loader_settings,
+                       clip_skip, resolution, empty_latent_width, empty_latent_height,
+                       positive, positive_token_normalization, positive_weight_interpretation,
+                       negative, negative_token_normalization, negative_weight_interpretation,
+                       batch_size, optional_controlnet_stack=None, a1111_prompt_style=False, video_length=25, prompt=None,
+                       my_unique_id=None):
+        if not clip:
+            raise Exception("No CLIP found")
+
+        model_type = get_sd_version(model)
+        samples = sampler.emptyLatent(resolution, empty_latent_width, empty_latent_height, batch_size, model_type=model_type, video_length=video_length)
+
+        positive_embeddings_final, positive_wildcard_prompt, model, clip = prompt_to_cond('positive', model, clip, clip_skip, lora_stack, positive, positive_token_normalization, positive_weight_interpretation, a1111_prompt_style, my_unique_id, prompt, easyCache, model_type=model_type)
+        negative_embeddings_final, negative_wildcard_prompt, model, clip = prompt_to_cond('negative', model, clip, clip_skip, lora_stack, negative, negative_token_normalization, negative_weight_interpretation, a1111_prompt_style, my_unique_id, prompt, easyCache, model_type=model_type)
+
+        if negative_embeddings_final is None:
+            negative_embeddings_final, = ConditioningZeroOut().zero_out(positive_embeddings_final)
+
+        if optional_controlnet_stack is not None and len(optional_controlnet_stack) > 0:
+            for controlnet in optional_controlnet_stack:
+                positive_embeddings_final, negative_embeddings_final = easyControlnet().apply(controlnet[0], controlnet[5], positive_embeddings_final, negative_embeddings_final, controlnet[1], start_percent=controlnet[2], end_percent=controlnet[3], control_net=None, scale_soft_weights=controlnet[4], mask=None, easyCache=easyCache, use_cache=True, model=model, vae=vae)
+
+        pipe = {
+            "model": model,
+            "positive": positive_embeddings_final,
+            "negative": negative_embeddings_final,
+            "vae": vae,
+            "clip": clip,
+            "samples": samples,
+            "images": None,
+            "loader_settings": loader_settings,
+        }
+
+        return {"ui": {"positive": positive_wildcard_prompt, "negative": negative_wildcard_prompt}, "result": (pipe, model, vae, clip, positive_embeddings_final, negative_embeddings_final, samples)}
+
     def adv_pipeloader(self, ckpt_name, config_name, vae_name, clip_skip,
                        lora_name, lora_model_strength, lora_clip_strength,
                        resolution, empty_latent_width, empty_latent_height,
@@ -75,63 +110,38 @@ class fullLoader:
         if ckpt_name == 'None' and model_override is None:
             raise Exception("Please select a checkpoint or provide a model override.")
 
-        # Clean models from loaded_objects
         easyCache.update_loaded_objects(prompt)
 
-        # Load models
         log_node_warn("Loading models...")
         model, clip, vae, clip_vision, lora_stack = easyCache.load_main(ckpt_name, config_name, vae_name, lora_name, lora_model_strength, lora_clip_strength, optional_lora_stack, model_override, clip_override, vae_override, prompt)
 
-        # Create Empty Latent
-        model_type = get_sd_version(model)
-        samples = sampler.emptyLatent(resolution, empty_latent_width, empty_latent_height, batch_size, model_type=model_type, video_length=video_length)
-
-        # Prompt to Conditioning
-        positive_embeddings_final, positive_wildcard_prompt, model, clip = prompt_to_cond('positive', model, clip, clip_skip, lora_stack, positive, positive_token_normalization, positive_weight_interpretation, a1111_prompt_style, my_unique_id, prompt, easyCache, model_type=model_type)
-        negative_embeddings_final, negative_wildcard_prompt, model, clip = prompt_to_cond('negative', model, clip, clip_skip, lora_stack, negative, negative_token_normalization, negative_weight_interpretation, a1111_prompt_style, my_unique_id, prompt, easyCache, model_type=model_type)
-
-        if negative_embeddings_final is None:
-            negative_embeddings_final, = ConditioningZeroOut().zero_out(positive_embeddings_final)
-
-        # Conditioning add controlnet
-        if optional_controlnet_stack is not None and len(optional_controlnet_stack) > 0:
-            for controlnet in optional_controlnet_stack:
-                positive_embeddings_final, negative_embeddings_final = easyControlnet().apply(controlnet[0], controlnet[5], positive_embeddings_final, negative_embeddings_final, controlnet[1], start_percent=controlnet[2], end_percent=controlnet[3], control_net=None, scale_soft_weights=controlnet[4], mask=None, easyCache=easyCache, use_cache=True, model=model, vae=vae)
-
-        pipe = {
-            "model": model,
-            "positive": positive_embeddings_final,
-            "negative": negative_embeddings_final,
-            "vae": vae,
-            "clip": clip,
-
-            "samples": samples,
-            "images": None,
-
-            "loader_settings": {
-                "ckpt_name": ckpt_name,
-                "vae_name": vae_name,
-                "lora_name": lora_name,
-                "lora_model_strength": lora_model_strength,
-                "lora_clip_strength": lora_clip_strength,
-                "lora_stack": lora_stack,
-
-                "clip_skip": clip_skip,
-                "a1111_prompt_style": a1111_prompt_style,
-                "positive": positive,
-                "positive_token_normalization": positive_token_normalization,
-                "positive_weight_interpretation": positive_weight_interpretation,
-                "negative": negative,
-                "negative_token_normalization": negative_token_normalization,
-                "negative_weight_interpretation": negative_weight_interpretation,
-                "resolution": resolution,
-                "empty_latent_width": empty_latent_width,
-                "empty_latent_height": empty_latent_height,
-                "batch_size": batch_size,
-            }
+        loader_settings = {
+            "ckpt_name": ckpt_name,
+            "vae_name": vae_name,
+            "lora_name": lora_name,
+            "lora_model_strength": lora_model_strength,
+            "lora_clip_strength": lora_clip_strength,
+            "lora_stack": lora_stack,
+            "clip_skip": clip_skip,
+            "a1111_prompt_style": a1111_prompt_style,
+            "positive": positive,
+            "positive_token_normalization": positive_token_normalization,
+            "positive_weight_interpretation": positive_weight_interpretation,
+            "negative": negative,
+            "negative_token_normalization": negative_token_normalization,
+            "negative_weight_interpretation": negative_weight_interpretation,
+            "resolution": resolution,
+            "empty_latent_width": empty_latent_width,
+            "empty_latent_height": empty_latent_height,
+            "batch_size": batch_size,
         }
 
-        return {"ui": {"positive": positive_wildcard_prompt, "negative": negative_wildcard_prompt}, "result": (pipe, model, vae, clip, positive_embeddings_final, negative_embeddings_final, samples)}
+        return self._finalize_pipe(model, clip, vae, lora_stack, loader_settings,
+                                   clip_skip, resolution, empty_latent_width, empty_latent_height,
+                                   positive, positive_token_normalization, positive_weight_interpretation,
+                                   negative, negative_token_normalization, negative_weight_interpretation,
+                                   batch_size, optional_controlnet_stack=optional_controlnet_stack, a1111_prompt_style=a1111_prompt_style, video_length=video_length, prompt=prompt,
+                                   my_unique_id=my_unique_id)
 
 # A1111简易加载器
 class a1111Loader(fullLoader):
@@ -924,20 +934,25 @@ class fluxLoader(fullLoader):
     @classmethod
     def INPUT_TYPES(cls):
         checkpoints = folder_paths.get_filename_list("checkpoints")
+        unets = folder_paths.get_filename_list("unet")
+        clips = folder_paths.get_filename_list("clip")
+        vaes = folder_paths.get_filename_list("vae")
         loras = ["None"] + folder_paths.get_filename_list("loras")
         return {
             "required": {
+                "toggle": ("BOOLEAN", {"default": True}),
                 "ckpt_name": (checkpoints + ['None'],),
-                "vae_name": (["Baked VAE"] + folder_paths.get_filename_list("vae"),),
+                "unet_name": (unets + ['None'],),
+                "clip_name": (clips + ['None'],),
+                "vae_name": (["Baked VAE"] + vaes,),
+                "vae_name_components": (vaes + ['None'],),
                 "lora_name": (loras,),
                 "lora_model_strength": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01}),
                 "lora_clip_strength": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01}),
                 "resolution": (resolution_strings, {"default": "1024 x 1024"}),
                 "empty_latent_width": ("INT", {"default": 1024, "min": 64, "max": MAX_RESOLUTION, "step": 8}),
                 "empty_latent_height": ("INT", {"default": 1024, "min": 64, "max": MAX_RESOLUTION, "step": 8}),
-
                 "positive": ("STRING", {"default": "", "placeholder": "Positive", "multiline": True}),
-
                 "batch_size": ("INT", {"default": 1, "min": 1, "max": 64}),
             },
             "optional": {
@@ -956,7 +971,7 @@ class fluxLoader(fullLoader):
     FUNCTION = "fluxloader"
     CATEGORY = "EasyUse/Loaders"
 
-    def fluxloader(self, ckpt_name, vae_name,
+    def fluxloader(self, toggle, ckpt_name, unet_name, clip_name, vae_name, vae_name_components,
                     lora_name, lora_model_strength, lora_clip_strength,
                     resolution, empty_latent_width, empty_latent_height,
                     positive, batch_size, model_override=None, clip_override=None, vae_override=None, optional_lora_stack=None, optional_controlnet_stack=None,
@@ -966,15 +981,88 @@ class fluxLoader(fullLoader):
         if positive == '':
             positive = None
 
-        return super().adv_pipeloader(ckpt_name, 'Default', vae_name, 0,
-                                      lora_name, lora_model_strength, lora_clip_strength,
-                                      resolution, empty_latent_width, empty_latent_height,
-                                      positive, 'none', 'comfy',
-                                      None, 'none', 'comfy',
-                                      batch_size, model_override, clip_override, vae_override, optional_lora_stack=optional_lora_stack,
-                                      optional_controlnet_stack=optional_controlnet_stack,
-                                      a1111_prompt_style=a1111_prompt_style, prompt=prompt,
-                                      my_unique_id=my_unique_id)
+        if toggle:
+            result = super().adv_pipeloader(ckpt_name, 'Default', vae_name, 0,
+                                            lora_name, lora_model_strength, lora_clip_strength,
+                                            resolution, empty_latent_width, empty_latent_height,
+                                            positive, 'none', 'comfy',
+                                            None, 'none', 'comfy',
+                                            batch_size, model_override, clip_override, vae_override, optional_lora_stack=optional_lora_stack,
+                                            optional_controlnet_stack=optional_controlnet_stack,
+                                            a1111_prompt_style=a1111_prompt_style, prompt=prompt,
+                                            my_unique_id=my_unique_id)
+            result["result"][0]["loader_settings"].update({
+                "toggle": toggle,
+                "model_mode": "checkpoint",
+                "unet_name": unet_name,
+                "clip_name": clip_name,
+                "vae_name_components": vae_name_components,
+            })
+            return result
+
+        if unet_name == 'None' and model_override is None:
+            raise Exception("Please select a model or provide a model override.")
+        if clip_name == 'None' and clip_override is None:
+            raise Exception("Please select a CLIP or provide a clip override.")
+        if vae_name_components == 'None' and vae_override is None:
+            raise Exception("Please select a VAE or provide a vae override.")
+
+        easyCache.update_loaded_objects(prompt)
+
+        log_node_warn("Loading models...")
+        model = model_override if model_override is not None else easyCache.load_unet(unet_name)
+        clip = clip_override if clip_override is not None else easyCache.load_clip(clip_name, type='flux')
+        vae = vae_override if vae_override is not None else easyCache.load_vae(vae_name_components)
+        lora_stack = []
+
+        if optional_lora_stack is not None:
+            for lora in optional_lora_stack:
+                lora = {"lora_name": lora[0], "model": model, "clip": clip, "model_strength": lora[1],
+                        "clip_strength": lora[2]}
+                model, clip = easyCache.load_lora(lora)
+                lora['model'] = model
+                lora['clip'] = clip
+                lora_stack.append(lora)
+
+        if lora_name != "None":
+            lora = {"lora_name": lora_name, "model": model, "clip": clip, "model_strength": lora_model_strength,
+                    "clip_strength": lora_clip_strength}
+            model, clip = easyCache.load_lora(lora)
+            lora_stack.append(lora)
+
+        loader_settings = {
+            "toggle": toggle,
+            "model_mode": "components",
+            "ckpt_name": None,
+            "unet_name": unet_name,
+            "clip_name": clip_name,
+            "vae_name": vae_name_components,
+            "vae_name_components": vae_name_components,
+            "lora_name": lora_name,
+            "lora_model_strength": lora_model_strength,
+            "lora_clip_strength": lora_clip_strength,
+            "lora_stack": lora_stack,
+            "clip_skip": 0,
+            "a1111_prompt_style": a1111_prompt_style,
+            "positive": positive,
+            "positive_token_normalization": 'none',
+            "positive_weight_interpretation": 'comfy',
+            "negative": None,
+            "negative_token_normalization": 'none',
+            "negative_weight_interpretation": 'comfy',
+            "resolution": resolution,
+            "empty_latent_width": empty_latent_width,
+            "empty_latent_height": empty_latent_height,
+            "batch_size": batch_size,
+        }
+
+        return self._finalize_pipe(model, clip, vae, lora_stack, loader_settings,
+                                   0, resolution, empty_latent_width, empty_latent_height,
+                                   positive, 'none', 'comfy',
+                                   None, 'none', 'comfy',
+                                   batch_size, optional_controlnet_stack=optional_controlnet_stack,
+                                   a1111_prompt_style=a1111_prompt_style, prompt=prompt,
+                                   my_unique_id=my_unique_id)
 
 
 # Dit Loader

@@ -30,9 +30,13 @@ class showLoaderSettingsNames:
             workflow = extra_pnginfo["workflow"]
             node = next((x for x in workflow["nodes"] if str(x["id"]) == unique_id), None)
             if node:
-                ckpt_name = pipe['loader_settings']['ckpt_name'] if 'ckpt_name' in pipe['loader_settings'] else ''
-                vae_name = pipe['loader_settings']['vae_name'] if 'vae_name' in pipe['loader_settings'] else ''
-                lora_name = pipe['loader_settings']['lora_name'] if 'lora_name' in pipe['loader_settings'] else ''
+                loader_settings = pipe['loader_settings'] if 'loader_settings' in pipe else {}
+                model_mode = loader_settings['model_mode'] if 'model_mode' in loader_settings else 'checkpoint'
+                ckpt_name = loader_settings['ckpt_name'] if 'ckpt_name' in loader_settings else ''
+                vae_name = loader_settings['vae_name'] if 'vae_name' in loader_settings else ''
+                lora_name = loader_settings['lora_name'] if 'lora_name' in loader_settings else ''
+                unet_name = loader_settings['unet_name'] if 'unet_name' in loader_settings else ''
+                clip_name = loader_settings['clip_name'] if 'clip_name' in loader_settings else ''
 
                 if ckpt_name:
                     ckpt_name = os.path.basename(os.path.splitext(ckpt_name)[0])
@@ -40,8 +44,15 @@ class showLoaderSettingsNames:
                     vae_name = os.path.basename(os.path.splitext(vae_name)[0])
                 if lora_name:
                     lora_name = os.path.basename(os.path.splitext(lora_name)[0])
+                if unet_name:
+                    unet_name = os.path.basename(os.path.splitext(unet_name)[0])
+                if clip_name:
+                    clip_name = os.path.basename(os.path.splitext(clip_name)[0])
 
-                names = "ckpt_name: " + ckpt_name + '\n' + "vae_name: " + vae_name + '\n' + "lora_name: " + lora_name
+                if model_mode == 'components':
+                    names = "unet_name: " + unet_name + '\n' + "clip_name: " + clip_name + '\n' + "vae_name: " + vae_name + '\n' + "lora_name: " + lora_name
+                else:
+                    names = "ckpt_name: " + ckpt_name + '\n' + "vae_name: " + vae_name + '\n' + "lora_name: " + lora_name
                 node["widgets_values"] = names
 
         return {"ui": {"text": [names]}, "result": (ckpt_name, vae_name, lora_name)}

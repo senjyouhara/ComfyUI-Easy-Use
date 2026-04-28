@@ -967,50 +967,62 @@
   "easy fluxLoader": {
     "display_name": "EasyLoader (Flux)",
     "inputs": {
+      "toggle": {
+        "name": "Checkpoint Mode"
+      },
       "ckpt_name": {
-        "name": "ckpt_name"
+        "name": "Checkpoint Name"
+      },
+      "unet_name": {
+        "name": "Model"
+      },
+      "clip_name": {
+        "name": "CLIP"
       },
       "vae_name": {
-        "name": "vae_name"
+        "name": "VAE"
+      },
+      "vae_name_components": {
+        "name": "VAE"
       },
       "lora_name": {
-        "name": "lora_name"
+        "name": "LoRA"
       },
       "lora_model_strength": {
-        "name": "lora_model_strength"
+        "name": "LoRA Model Strength"
       },
       "lora_clip_strength": {
-        "name": "lora_clip_strength"
+        "name": "LoRA CLIP Strength"
       },
       "resolution": {
-        "name": "resolution"
+        "name": "Resolution"
       },
       "empty_latent_width": {
-        "name": "empty_latent_width"
+        "name": "Width"
       },
       "empty_latent_height": {
-        "name": "empty_latent_height"
+        "name": "Height"
       },
       "positive": {
-        "name": "positive"
+        "name": "Positive"
       },
       "batch_size": {
-        "name": "batch_size"
+        "name": "Batch Size"
       },
       "model_override": {
-        "name": "model_override"
+        "name": "Model (Optional)"
       },
       "clip_override": {
-        "name": "clip_override"
+        "name": "CLIP (Optional)"
       },
       "vae_override": {
-        "name": "vae_override"
+        "name": "VAE (Optional)"
       },
       "optional_lora_stack": {
-        "name": "optional_lora_stack"
+        "name": "LoRA Stack (Optional)"
       },
       "optional_controlnet_stack": {
-        "name": "optional_controlnet_stack"
+        "name": "ControlNet Stack (Optional)"
       }
     },
     "outputs": {

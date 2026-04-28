@@ -101,7 +101,28 @@ class easyLoader:
                 setting = f'{lora_name};{entry["inputs"]["lora_model_strength"]};{entry["inputs"]["lora_clip_strength"]}'
                 desired_lora_settings.add(setting)
 
-            if class_type in diffusion_loaders:
+            if class_type == 'easy fluxLoader':
+                toggle = self.get_input_value(entry, "toggle") if "toggle" in entry["inputs"] else True
+                use_checkpoint = toggle not in [False, "False", "false", "0", 0]
+                model_override = entry["inputs"].get("model_override")
+                clip_override = entry["inputs"].get("clip_override")
+                vae_override = entry["inputs"].get("vae_override")
+                has_model_override = isinstance(model_override, list)
+                has_clip_override = isinstance(clip_override, list)
+                has_vae_override = isinstance(vae_override, list)
+
+                if use_checkpoint:
+                    desired_ckpt_names.add(self.get_input_value(entry, "ckpt_name", prompt))
+                    desired_vae_names.add(self.get_input_value(entry, "vae_name"))
+                else:
+                    if not has_model_override:
+                        desired_unet_names.add(self.get_input_value(entry, "unet_name"))
+                    if not has_clip_override:
+                        desired_clip_names.add(self.get_input_value(entry, "clip_name"))
+                    if not has_vae_override:
+                        desired_vae_names.add(self.get_input_value(entry, "vae_name_components"))
+
+            elif class_type in diffusion_loaders:
                 desired_ckpt_names.add(self.get_input_value(entry, "ckpt_name", prompt))
                 desired_vae_names.add(self.get_input_value(entry, "vae_name"))
 
@@ -456,11 +477,10 @@ class easyLoader:
             model, clip, vae, clip_vision = self.load_checkpoint(ckpt_name, config_name)
             if model_override is not None:
                 model = model_override
+            if clip_override is not None:
+                clip = clip_override
             if vae_override is not None:
                 vae = vae_override
-            elif clip_override is not None:
-                clip = clip_override
-
 
         if optional_lora_stack is not None and can_load_lora:
             for lora in optional_lora_stack:

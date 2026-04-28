@@ -436,12 +436,13 @@ class samplerFull:
             blend_samples = pipe['blend_samples'] if "blend_samples" in pipe else None
             layer_diffusion_method = pipe['loader_settings']['layer_diffusion_method'] if 'layer_diffusion_method' in pipe['loader_settings'] else None
 
+            loader_settings = pipe["loader_settings"]
             plot_image_vars = {
                 "x_node_type": sampleXYplot.x_node_type, "y_node_type": sampleXYplot.y_node_type,
-                "lora_name": pipe["loader_settings"]["lora_name"] if "lora_name" in pipe["loader_settings"] else None,
-                "lora_model_strength": pipe["loader_settings"]["lora_model_strength"] if "lora_model_strength" in pipe["loader_settings"] else 1.0,
-                "lora_clip_strength": pipe["loader_settings"]["lora_clip_strength"] if "lora_clip_strength" in pipe["loader_settings"] else 1.0,
-                "lora_stack":  pipe["loader_settings"]["lora_stack"] if "lora_stack" in pipe["loader_settings"] else None,
+                "lora_name": loader_settings["lora_name"] if "lora_name" in loader_settings else None,
+                "lora_model_strength": loader_settings["lora_model_strength"] if "lora_model_strength" in loader_settings else 1.0,
+                "lora_clip_strength": loader_settings["lora_clip_strength"] if "lora_clip_strength" in loader_settings else 1.0,
+                "lora_stack":  loader_settings["lora_stack"] if "lora_stack" in loader_settings else None,
                 "steps": steps,
                 "cfg": cfg,
                 "sampler_name": sampler_name,
@@ -454,15 +455,18 @@ class samplerFull:
                 "negative_cond": samp_negative,
                 "noise_device":noise_device,
 
-                "ckpt_name": pipe['loader_settings']['ckpt_name'] if "ckpt_name" in pipe["loader_settings"] else None,
-                "vae_name": pipe['loader_settings']['vae_name'] if "vae_name" in pipe["loader_settings"] else None,
-                "clip_skip": pipe['loader_settings']['clip_skip'] if "clip_skip" in pipe["loader_settings"] else None,
-                "positive": pipe['loader_settings']['positive'] if "positive" in pipe["loader_settings"] else None,
-                "positive_token_normalization": pipe['loader_settings']['positive_token_normalization'] if "positive_token_normalization" in pipe["loader_settings"] else None,
-                "positive_weight_interpretation": pipe['loader_settings']['positive_weight_interpretation'] if "positive_weight_interpretation" in pipe["loader_settings"] else None,
-                "negative": pipe['loader_settings']['negative'] if "negative" in pipe["loader_settings"] else None,
-                "negative_token_normalization": pipe['loader_settings']['negative_token_normalization'] if "negative_token_normalization" in pipe["loader_settings"] else None,
-                "negative_weight_interpretation": pipe['loader_settings']['negative_weight_interpretation'] if "negative_weight_interpretation" in pipe["loader_settings"] else None,
+                "model_mode": loader_settings["model_mode"] if "model_mode" in loader_settings else "checkpoint",
+                "ckpt_name": loader_settings['ckpt_name'] if "ckpt_name" in loader_settings else None,
+                "unet_name": loader_settings['unet_name'] if "unet_name" in loader_settings else None,
+                "clip_name": loader_settings['clip_name'] if "clip_name" in loader_settings else None,
+                "vae_name": loader_settings['vae_name'] if "vae_name" in loader_settings else None,
+                "clip_skip": loader_settings['clip_skip'] if "clip_skip" in loader_settings else None,
+                "positive": loader_settings['positive'] if "positive" in loader_settings else None,
+                "positive_token_normalization": loader_settings['positive_token_normalization'] if "positive_token_normalization" in loader_settings else None,
+                "positive_weight_interpretation": loader_settings['positive_weight_interpretation'] if "positive_weight_interpretation" in loader_settings else None,
+                "negative": loader_settings['negative'] if "negative" in loader_settings else None,
+                "negative_token_normalization": loader_settings['negative_token_normalization'] if "negative_token_normalization" in loader_settings else None,
+                "negative_weight_interpretation": loader_settings['negative_weight_interpretation'] if "negative_weight_interpretation" in loader_settings else None,
             }
 
             if "models" in pipe["loader_settings"]:
