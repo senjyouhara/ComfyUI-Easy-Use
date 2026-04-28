@@ -87,21 +87,18 @@ const mountLoraStackWidget = (node) => {
 const hasLinkedInput = (node, name) => Boolean(node.inputs?.find(input => input.name === name)?.link)
 const getFirstOptionValue = (widget, fallback = 'None') => widget?.options?.values?.find(value => value !== 'None') || widget?.options?.values?.[0] || fallback
 
-const syncFluxLoaderWidgets = (node) => {
-    if (node.comfyClass !== 'easy fluxLoader') return
+const syncUnifiedLoaderWidgets = (node) => {
+    if (!['easy fluxLoader', 'easy comfyLoader'].includes(node.comfyClass)) return
 
     const ckptName = getWidgetByName(node, 'ckpt_name')
     const unetName = getWidgetByName(node, 'unet_name')
     const clipName = getWidgetByName(node, 'clip_name')
+    const clipType = getWidgetByName(node, 'clip_type')
     const vaeName = getWidgetByName(node, 'vae_name')
 
     const modelOverrideLinked = hasLinkedInput(node, 'model_override')
     const clipOverrideLinked = hasLinkedInput(node, 'clip_override')
     const vaeOverrideLinked = hasLinkedInput(node, 'vae_override')
-
-    if (modelOverrideLinked && ckptName?.value === 'None') {
-        ckptName.value = getFirstOptionValue(ckptName)
-    }
 
     if (vaeOverrideLinked && vaeName?.value === 'None') {
         vaeName.value = 'Baked VAE'
@@ -110,6 +107,7 @@ const syncFluxLoaderWidgets = (node) => {
     toggleWidget(node, ckptName, !modelOverrideLinked)
     toggleWidget(node, unetName, !modelOverrideLinked)
     toggleWidget(node, clipName, !clipOverrideLinked)
+    toggleWidget(node, clipType, !clipOverrideLinked)
     toggleWidget(node, vaeName, !vaeOverrideLinked)
     updateNodeHeight(node)
 }
@@ -571,11 +569,11 @@ app.registerExtension({
                 }
             }
         }
-        if(['easy fluxLoader', 'easy fullLoader'].includes(node_name)){
+        if(['easy fluxLoader', 'easy comfyLoader', 'easy fullLoader'].includes(node_name)){
             nodeType.prototype.onConnectionsChange = async function (output, input) {
                 onConnectionsChange ? onConnectionsChange.apply(this, arguments) : undefined;
-                if (node_name === 'easy fluxLoader') {
-                    setTimeout(() => syncFluxLoaderWidgets(this), 1)
+                if (['easy fluxLoader', 'easy comfyLoader'].includes(node_name)) {
+                    setTimeout(() => syncUnifiedLoaderWidgets(this), 1)
                     return
                 }
 
@@ -635,8 +633,8 @@ app.registerExtension({
                                         hideLoraStackWidgets(node)
                                         node.easyUseLoraStackRefresh?.()
                                     }
-                                    if (node_name === 'easy fluxLoader') {
-                                        syncFluxLoaderWidgets(node)
+                                    if (['easy fluxLoader', 'easy comfyLoader'].includes(node_name)) {
+                                        syncUnifiedLoaderWidgets(node)
                                     }
                                 })
                             }
@@ -649,8 +647,8 @@ app.registerExtension({
                 mountLoraStackWidget(node)
             }
 
-            if (node_name === 'easy fluxLoader') {
-                requestAnimationFrame(() => syncFluxLoaderWidgets(node))
+            if (['easy fluxLoader', 'easy comfyLoader'].includes(node_name)) {
+                requestAnimationFrame(() => syncUnifiedLoaderWidgets(node))
             }
 
             // easy detailerfix

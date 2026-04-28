@@ -459,6 +459,7 @@ class samplerFull:
                 "ckpt_name": loader_settings['ckpt_name'] if "ckpt_name" in loader_settings else None,
                 "unet_name": loader_settings['unet_name'] if "unet_name" in loader_settings else None,
                 "clip_name": loader_settings['clip_name'] if "clip_name" in loader_settings else None,
+                "clip_type": loader_settings['clip_type'] if "clip_type" in loader_settings else None,
                 "vae_name": loader_settings['vae_name'] if "vae_name" in loader_settings else None,
                 "clip_skip": loader_settings['clip_skip'] if "clip_skip" in loader_settings else None,
                 "positive": loader_settings['positive'] if "positive" in loader_settings else None,

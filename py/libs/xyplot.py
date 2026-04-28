@@ -468,7 +468,8 @@ class easyXYPlot():
 
             if self.x_type == 'clip_name' or self.y_type == 'clip_name':
                 clip_name = x_value if self.x_type == "clip_name" else y_value
-                clip = self.easyCache.load_clip(clip_name, type='flux' if sd_version == 'flux' else 'stable_diffusion')
+                clip_type = plot_image_vars.get('clip_type') or ('flux' if sd_version == 'flux' else 'stable_diffusion')
+                clip = self.easyCache.load_clip(clip_name, type=clip_type)
                 model_mode = 'components'
 
             if self.x_type == 'vae_name' or self.y_type == 'vae_name':
@@ -482,7 +483,8 @@ class easyXYPlot():
                         model = self.easyCache.load_unet(unet_name) if unet_name not in [None, 'None'] else plot_image_vars['model']
                     if clip is None:
                         clip_name = plot_image_vars.get('clip_name')
-                        clip = self.easyCache.load_clip(clip_name, type='flux' if sd_version == 'flux' else 'stable_diffusion') if clip_name not in [None, 'None'] else plot_image_vars['clip']
+                        clip_type = plot_image_vars.get('clip_type') or ('flux' if sd_version == 'flux' else 'stable_diffusion')
+                        clip = self.easyCache.load_clip(clip_name, type=clip_type) if clip_name not in [None, 'None'] else plot_image_vars['clip']
                 else:
                     model, clip, vae, clip_vision = self.easyCache.load_checkpoint(plot_image_vars['ckpt_name'])
 

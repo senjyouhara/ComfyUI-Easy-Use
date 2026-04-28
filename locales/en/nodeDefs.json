@@ -644,10 +644,19 @@
     "display_name": "EasyLoader (Comfy)",
     "inputs": {
       "ckpt_name": {
-        "name": "ckpt_name"
+        "name": "Checkpoint"
+      },
+      "unet_name": {
+        "name": "UNet"
+      },
+      "clip_name": {
+        "name": "CLIP"
+      },
+      "clip_type": {
+        "name": "CLIP Type"
       },
       "vae_name": {
-        "name": "vae_name"
+        "name": "VAE"
       },
       "clip_skip": {
         "name": "clip_skip"
@@ -678,6 +687,15 @@
       },
       "batch_size": {
         "name": "batch_size"
+      },
+      "model_override": {
+        "name": "model_override"
+      },
+      "clip_override": {
+        "name": "clip_override"
+      },
+      "vae_override": {
+        "name": "vae_override"
       },
       "optional_lora_stack": {
         "name": "optional_lora_stack"
@@ -975,6 +993,9 @@
       },
       "clip_name": {
         "name": "CLIP"
+      },
+      "clip_type": {
+        "name": "CLIP Type"
       },
       "vae_name": {
         "name": "VAE"

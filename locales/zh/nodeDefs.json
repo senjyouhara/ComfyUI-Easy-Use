@@ -573,8 +573,26 @@
       "optional_controlnet_stack": {
         "name": "ControlNet堆（可选）"
       },
+      "model_override": {
+        "name": "模型（可选）"
+      },
+      "clip_override": {
+        "name": "CLIP（可选）"
+      },
+      "vae_override": {
+        "name": "VAE（可选）"
+      },
       "ckpt_name": {
-        "name": "模型名称"
+        "name": "Checkpoint"
+      },
+      "unet_name": {
+        "name": "UNet"
+      },
+      "clip_name": {
+        "name": "CLIP"
+      },
+      "clip_type": {
+        "name": "CLIP类型"
       },
       "vae_name": {
         "name": "VAE"
@@ -616,6 +634,9 @@
       },
       "1": {
         "name": "模型"
+      },
+      "2": {
+        "name": "VAE"
       }
     }
   },
@@ -786,6 +807,9 @@
       },
       "clip_name": {
         "name": "CLIP"
+      },
+      "clip_type": {
+        "name": "CLIP类型"
       },
       "vae_name": {
         "name": "VAE"

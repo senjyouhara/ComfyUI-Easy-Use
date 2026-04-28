@@ -22,6 +22,38 @@ from .. import easyCache, sampler
 any_type = AlwaysEqualProxy("*")
 # 简易加载器完整
 resolution_strings = [f"{width} x {height} (custom)" if width == 'width' and height == 'height' else f"{width} x {height}" for width, height in BASE_RESOLUTIONS]
+
+def get_native_clip_type_options(include_flux=False):
+    clip_types = None
+    if "CLIPLoader" in ALL_NODE_CLASS_MAPPINGS:
+        try:
+            clip_types = list(ALL_NODE_CLASS_MAPPINGS["CLIPLoader"].INPUT_TYPES()["required"]["type"][0])
+        except Exception:
+            clip_types = None
+
+    if not clip_types:
+        official_clip_types = [
+            "stable_diffusion", "stable_cascade", "sd3", "stable_audio", "mochi", "ltxv", "pixart",
+            "cosmos", "lumina2", "wan", "hidream", "chroma", "ace", "omnigen2", "qwen_image",
+            "hunyuan_image", "flux2", "ovis", "longcat_image"
+        ]
+        clip_types = [clip_type for clip_type in official_clip_types if hasattr(comfy.sd.CLIPType, clip_type.upper())]
+        if not clip_types:
+            clip_types = ["stable_diffusion", "stable_cascade", "sd3", "stable_audio"]
+
+    if include_flux and "flux" not in clip_types and "flux2" not in clip_types and hasattr(comfy.sd.CLIPType, "FLUX"):
+        clip_types = [*clip_types, "flux"]
+
+    return clip_types
+
+
+def get_default_clip_type(clip_types, preferred_type='stable_diffusion'):
+    if preferred_type in clip_types:
+        return preferred_type
+    if preferred_type == 'flux' and 'flux2' in clip_types:
+        return 'flux2'
+    return clip_types[0]
+
 class fullLoader:
 
     @classmethod
@@ -201,26 +233,37 @@ class a1111Loader(fullLoader):
 class comfyLoader(fullLoader):
     @classmethod
     def INPUT_TYPES(cls):
+        checkpoints = folder_paths.get_filename_list("checkpoints")
+        unets = folder_paths.get_filename_list("unet")
+        clips = folder_paths.get_filename_list("clip")
+        vaes = folder_paths.get_filename_list("vae")
+        loras = ["None"] + folder_paths.get_filename_list("loras")
+        clip_types = get_native_clip_type_options()
         return {
             "required": {
-                "ckpt_name": (folder_paths.get_filename_list("checkpoints"),),
-                "vae_name": (["Baked VAE"] + folder_paths.get_filename_list("vae"),),
+                "ckpt_name": (checkpoints + ['None'], {"default": "None"}),
+                "unet_name": (unets + ['None'], {"default": "None"}),
+                "clip_name": (clips + ['None'], {"default": "None"}),
+                "clip_type": (clip_types, {"default": get_default_clip_type(clip_types)}),
+                "vae_name": (["None", "Baked VAE"] + vaes, {"default": "None"}),
                 "clip_skip": ("INT", {"default": -2, "min": -24, "max": 0, "step": 1}),
-
-                "lora_name": (["None"] + folder_paths.get_filename_list("loras"),),
+                "lora_name": (loras,),
                 "lora_model_strength": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01}),
                 "lora_clip_strength": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01}),
-
                 "resolution": (resolution_strings, {"default": "512 x 512"}),
                 "empty_latent_width": ("INT", {"default": 512, "min": 64, "max": MAX_RESOLUTION, "step": 8}),
                 "empty_latent_height": ("INT", {"default": 512, "min": 64, "max": MAX_RESOLUTION, "step": 8}),
-
                 "positive": ("STRING", {"default": "", "placeholder": "Positive", "multiline": True}),
                 "negative": ("STRING", {"default": "", "placeholder": "Negative", "multiline": True}),
-
                 "batch_size": ("INT", {"default": 1, "min": 1, "max": 4096, "tooltip": "The number of latent images in the batch."})
             },
-            "optional": {"optional_lora_stack": ("LORA_STACK",), "optional_controlnet_stack": ("CONTROL_NET_STACK",),},
+            "optional": {
+                "model_override": ("MODEL",),
+                "clip_override": ("CLIP",),
+                "vae_override": ("VAE",),
+                "optional_lora_stack": ("LORA_STACK",),
+                "optional_controlnet_stack": ("CONTROL_NET_STACK",),
+            },
             "hidden": {"prompt": "PROMPT", "my_unique_id": "UNIQUE_ID"}
         }
 
@@ -230,19 +273,96 @@ class comfyLoader(fullLoader):
     FUNCTION = "comfyloader"
     CATEGORY = "EasyUse/Loaders"
 
-    def comfyloader(self, ckpt_name, vae_name, clip_skip,
+    def comfyloader(self, ckpt_name, unet_name, clip_name, clip_type, vae_name, clip_skip,
                        lora_name, lora_model_strength, lora_clip_strength,
                        resolution, empty_latent_width, empty_latent_height,
-                       positive, negative, batch_size, optional_lora_stack=None, optional_controlnet_stack=None, prompt=None,
+                       positive, negative, batch_size, model_override=None, clip_override=None, vae_override=None,
+                       optional_lora_stack=None, optional_controlnet_stack=None, prompt=None,
                       my_unique_id=None):
-        return super().adv_pipeloader(ckpt_name, 'Default', vae_name, clip_skip,
-             lora_name, lora_model_strength, lora_clip_strength,
-             resolution, empty_latent_width, empty_latent_height,
-             positive, 'none', 'comfy',
-             negative, 'none', 'comfy',
-             batch_size, None, None, None, optional_lora_stack=optional_lora_stack, optional_controlnet_stack=optional_controlnet_stack, a1111_prompt_style=False, prompt=prompt,
-             my_unique_id=my_unique_id
-         )
+        use_checkpoint = ckpt_name != 'None'
+        checkpoint_vae_name = 'Baked VAE' if vae_name == 'None' else vae_name
+
+        if use_checkpoint:
+            result = super().adv_pipeloader(ckpt_name, 'Default', checkpoint_vae_name, clip_skip,
+                 lora_name, lora_model_strength, lora_clip_strength,
+                 resolution, empty_latent_width, empty_latent_height,
+                 positive, 'none', 'comfy',
+                 negative, 'none', 'comfy',
+                 batch_size, model_override, clip_override, vae_override, optional_lora_stack=optional_lora_stack,
+                 optional_controlnet_stack=optional_controlnet_stack, a1111_prompt_style=False, prompt=prompt,
+                 my_unique_id=my_unique_id
+             )
+            result["result"][0]["loader_settings"].update({
+                "model_mode": "checkpoint",
+                "unet_name": unet_name,
+                "clip_name": clip_name,
+                "clip_type": clip_type,
+            })
+            return result
+
+        if unet_name == 'None' and model_override is None:
+            raise Exception("Please select a checkpoint or model, or provide a model override.")
+        if clip_name == 'None' and clip_override is None:
+            raise Exception("Please select a CLIP or provide a clip override.")
+        if vae_name in ['None', 'Baked VAE', 'Baked-VAE'] and vae_override is None:
+            raise Exception("Please select a VAE or provide a vae override.")
+
+        easyCache.update_loaded_objects(prompt)
+
+        log_node_warn("Loading models...")
+        model = model_override if model_override is not None else easyCache.load_unet(unet_name)
+        clip = clip_override if clip_override is not None else easyCache.load_clip(clip_name, type=clip_type)
+        vae = vae_override if vae_override is not None else easyCache.load_vae(vae_name)
+        loader_clip_type = clip_type
+        lora_stack = []
+
+        loader_settings = {
+            "model_mode": "components",
+            "ckpt_name": None,
+            "unet_name": unet_name,
+            "clip_name": clip_name,
+            "clip_type": loader_clip_type,
+            "vae_name": vae_name,
+            "lora_name": lora_name,
+            "lora_model_strength": lora_model_strength,
+            "lora_clip_strength": lora_clip_strength,
+            "lora_stack": lora_stack,
+            "clip_skip": clip_skip,
+            "a1111_prompt_style": False,
+            "positive": positive,
+            "positive_token_normalization": 'none',
+            "positive_weight_interpretation": 'comfy',
+            "negative": negative,
+            "negative_token_normalization": 'none',
+            "negative_weight_interpretation": 'comfy',
+            "resolution": resolution,
+            "empty_latent_width": empty_latent_width,
+            "empty_latent_height": empty_latent_height,
+            "batch_size": batch_size,
+        }
+
+        if optional_lora_stack is not None:
+            for lora in optional_lora_stack:
+                lora = {"lora_name": lora[0], "model": model, "clip": clip, "model_strength": lora[1],
+                        "clip_strength": lora[2]}
+                model, clip = easyCache.load_lora(lora)
+                lora['model'] = model
+                lora['clip'] = clip
+                lora_stack.append(lora)
+
+        if lora_name != "None":
+            lora = {"lora_name": lora_name, "model": model, "clip": clip, "model_strength": lora_model_strength,
+                    "clip_strength": lora_clip_strength}
+            model, clip = easyCache.load_lora(lora)
+            lora_stack.append(lora)
+
+        return self._finalize_pipe(model, clip, vae, lora_stack, loader_settings,
+                                   clip_skip, resolution, empty_latent_width, empty_latent_height,
+                                   positive, 'none', 'comfy',
+                                   negative, 'none', 'comfy',
+                                   batch_size, optional_controlnet_stack=optional_controlnet_stack,
+                                   a1111_prompt_style=False, prompt=prompt,
+                                   my_unique_id=my_unique_id)
 
 # hydit简易加载器
 class hunyuanDiTLoader(fullLoader):
@@ -938,11 +1058,13 @@ class fluxLoader(fullLoader):
         clips = folder_paths.get_filename_list("clip")
         vaes = folder_paths.get_filename_list("vae")
         loras = ["None"] + folder_paths.get_filename_list("loras")
+        clip_types = get_native_clip_type_options(include_flux=True)
         return {
             "required": {
                 "ckpt_name": (checkpoints + ['None'], {"default": "None"}),
                 "unet_name": (unets + ['None'], {"default": "None"}),
                 "clip_name": (clips + ['None'], {"default": "None"}),
+                "clip_type": (clip_types, {"default": get_default_clip_type(clip_types, 'flux')}),
                 "vae_name": (["None", "Baked VAE"] + vaes, {"default": "None"}),
                 "lora_name": (loras,),
                 "lora_model_strength": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01}),
@@ -969,7 +1091,7 @@ class fluxLoader(fullLoader):
     FUNCTION = "fluxloader"
     CATEGORY = "EasyUse/Loaders"
 
-    def fluxloader(self, ckpt_name, unet_name, clip_name, vae_name,
+    def fluxloader(self, ckpt_name, unet_name, clip_name, clip_type, vae_name,
                     lora_name, lora_model_strength, lora_clip_strength,
                     resolution, empty_latent_width, empty_latent_height,
                     positive, batch_size, model_override=None, clip_override=None, vae_override=None, optional_lora_stack=None, optional_controlnet_stack=None,
@@ -996,6 +1118,7 @@ class fluxLoader(fullLoader):
                 "model_mode": "checkpoint",
                 "unet_name": unet_name,
                 "clip_name": clip_name,
+                "clip_type": clip_type,
             })
             return result
 
@@ -1010,8 +1133,9 @@ class fluxLoader(fullLoader):
 
         log_node_warn("Loading models...")
         model = model_override if model_override is not None else easyCache.load_unet(unet_name)
-        clip = clip_override if clip_override is not None else easyCache.load_clip(clip_name, type='flux')
+        clip = clip_override if clip_override is not None else easyCache.load_clip(clip_name, type=clip_type)
         vae = vae_override if vae_override is not None else easyCache.load_vae(vae_name)
+        loader_clip_type = clip_type
         lora_stack = []
 
         if optional_lora_stack is not None:
@@ -1034,6 +1158,7 @@ class fluxLoader(fullLoader):
             "ckpt_name": None,
             "unet_name": unet_name,
             "clip_name": clip_name,
+            "clip_type": loader_clip_type,
             "vae_name": vae_name,
             "lora_name": lora_name,
             "lora_model_strength": lora_model_strength,

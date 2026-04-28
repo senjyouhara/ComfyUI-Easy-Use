@@ -82,6 +82,21 @@ class easyLoader:
         desired_ckpt_names.add(self.get_input_value(entry, f"{suffix}ckpt_name"))
         desired_vae_names.add(self.get_input_value(entry, f"{suffix}vae_name"))
 
+    def get_legacy_clip_type(self, class_type):
+        if class_type == 'easy fluxLoader':
+            clip_loader = NODE_CLASS_MAPPINGS.get("CLIPLoader")
+            if clip_loader is not None:
+                try:
+                    clip_types = list(clip_loader.INPUT_TYPES()["required"]["type"][0])
+                    if "flux2" in clip_types:
+                        return "flux2"
+                except Exception:
+                    pass
+            if hasattr(comfy.sd.CLIPType, "FLUX"):
+                return "flux"
+
+        return 'stable_diffusion'
+
     def update_loaded_objects(self, prompt):
         desired_ckpt_names = set()
         desired_unet_names = set()
@@ -101,7 +116,7 @@ class easyLoader:
                 setting = f'{lora_name};{entry["inputs"]["lora_model_strength"]};{entry["inputs"]["lora_clip_strength"]}'
                 desired_lora_settings.add(setting)
 
-            if class_type == 'easy fluxLoader':
+            if class_type in ['easy fluxLoader', 'easy comfyLoader']:
                 ckpt_name = self.get_input_value(entry, "ckpt_name", prompt)
                 model_override = entry["inputs"].get("model_override")
                 clip_override = entry["inputs"].get("clip_override")
@@ -120,7 +135,9 @@ class easyLoader:
                     if not has_model_override:
                         desired_unet_names.add(self.get_input_value(entry, "unet_name"))
                     if not has_clip_override:
-                        desired_clip_names.add(self.get_input_value(entry, "clip_name"))
+                        clip_name = self.get_input_value(entry, "clip_name")
+                        clip_type = self.get_input_value(entry, "clip_type") if "clip_type" in entry["inputs"] else self.get_legacy_clip_type(class_type)
+                        desired_clip_names.add(f'{clip_name};{clip_type}')
                     if not has_vae_override and vae_name and vae_name not in ['None', 'Baked VAE', 'Baked-VAE']:
                         desired_vae_names.add(vae_name)
 
@@ -141,13 +158,13 @@ class easyLoader:
                 if t5_name:
                     desired_t5_names.add(t5_name)
                 if clip_name:
-                    desired_clip_names.add(clip_name)
+                    desired_clip_names.add(f'{clip_name};sd3')
                 desired_ckpt_names.add(ckpt_name+'_'+model_name)
 
             elif class_type in stable_cascade_loaders:
                 desired_unet_names.add(self.get_input_value(entry, "stage_c"))
                 desired_unet_names.add(self.get_input_value(entry, "stage_b"))
-                desired_clip_names.add(self.get_input_value(entry, "clip_name"))
+                desired_clip_names.add(f'{self.get_input_value(entry, "clip_name")};stable_cascade')
                 desired_vae_names.add(self.get_input_value(entry, "stage_a"))
 
             elif class_type in cascade_vae_node:
@@ -326,22 +343,19 @@ class easyLoader:
 
         return control_net
     def load_clip(self, clip_name, type='stable_diffusion', load_clip=None):
-        if clip_name in self.loaded_objects["clip"]:
-            return self.loaded_objects["clip"][clip_name][0]
+        cache_key = f'{clip_name};{type}'
+        if cache_key in self.loaded_objects["clip"]:
+            return self.loaded_objects["clip"][cache_key][0]
 
-        if type == 'stable_diffusion':
-            clip_type = comfy.sd.CLIPType.STABLE_DIFFUSION
-        elif type == 'stable_cascade':
-            clip_type = comfy.sd.CLIPType.STABLE_CASCADE
-        elif type == 'sd3':
-            clip_type = comfy.sd.CLIPType.SD3
-        elif type == 'flux':
+        clip_type = getattr(comfy.sd.CLIPType, type.upper(), None)
+        if clip_type is None and type == 'flux2' and hasattr(comfy.sd.CLIPType, 'FLUX'):
             clip_type = comfy.sd.CLIPType.FLUX
-        elif type == 'stable_audio':
-            clip_type = comfy.sd.CLIPType.STABLE_AUDIO
+        if clip_type is None:
+            raise Exception(f"Unsupported CLIP type: {type}")
+
         clip_path = folder_paths.get_full_path("clip", clip_name)
         load_clip = comfy.sd.load_clip(ckpt_paths=[clip_path], embedding_directory=folder_paths.get_folder_paths("embeddings"), clip_type=clip_type)
-        self.add_to_cache("clip", clip_name, load_clip)
+        self.add_to_cache("clip", cache_key, load_clip)
         self.eviction_based_on_memory()
 
         return load_clip
